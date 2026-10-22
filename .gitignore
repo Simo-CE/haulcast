@@ -11,3 +11,5 @@ db.sqlite3
 .coverage
 htmlcov/
 *.log
+.hypothesis/
+.ruff_cache/
