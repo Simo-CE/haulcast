@@ -19,6 +19,7 @@ WEIGHT_BUCKET_LB = 5_000
 SOFT_LIMIT_LB = 80_000
 MIN_TRIP_MI = 0.5  # TomTom answers a zero-length route for identical points
 CACHE_SECONDS = 3600
+MAX_ALTERNATIVES = 2  # TomTom time grows with it: measured 1 s for 0, 2 s for 2 and 4 s for 5 (535 mi)
 Progress = list[tuple[int, float]]
 
 
@@ -72,10 +73,6 @@ def _parse(raw: dict[str, Any]) -> tuple[list[LatLon], float, float, Progress]:
         raise IntegrationError(f"TomTom route has an unexpected shape: {type(exc).__name__}") from None
 
 
-def _signature(raw: dict[str, Any]) -> tuple[int, int]:
-    return raw["summary"]["lengthInMeters"], raw["summary"]["travelTimeInSeconds"]
-
-
 def _select(raw_routes: list[dict[str, Any]]) -> RouteSet:
     candidates, progress = [], {}
     for i, raw in enumerate(raw_routes):
@@ -97,14 +94,9 @@ def fetch_routes(origin: LatLon, destination: LatLon, departure: datetime, load_
     if (cached := cache.get(key)) is not None:
         return cached
 
-    params = build_params(hour, gross, max_alternatives=2)
-    raw_routes = _request(origin, destination, params)
+    # One request, never a second sequential one: each costs seconds and a quota call.
+    raw_routes = _request(origin, destination, build_params(hour, gross, max_alternatives=MAX_ALTERNATIVES))
     result = _select(raw_routes)
-    if len(result.routes) < MAX_ROUTES:
-        # Ask once for more alternatives; merge, dropping exact repeats of the first answer.
-        more = _request(origin, destination, {**params, "maxAlternatives": 5})
-        seen = {_signature(r) for r in more}
-        result = _select(more + [r for r in raw_routes if _signature(r) not in seen])
     if len(result.routes) < MAX_ROUTES:
         result.warnings.append(f"Only {len(result.routes)} distinct route(s) found for this trip.")
     if TARE_LB + load_lb > SOFT_LIMIT_LB:

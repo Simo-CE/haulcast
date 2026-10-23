@@ -43,7 +43,12 @@ ROOT_URLCONF = "config.urls"
 WSGI_APPLICATION = "config.wsgi.application"
 
 DATABASES: dict = {}
-CACHES = {"default": {"BACKEND": "django.core.cache.backends.locmem.LocMemCache"}}
+# The default of 300 entries is too small: one analysis stores about 250 weather cells and would evict
+# the cached routes and geocodes (seen in a real run: every repeat trip called TomTom again).
+CACHES = {"default": {
+    "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+    "OPTIONS": {"MAX_ENTRIES": 5000},
+}}
 
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [],

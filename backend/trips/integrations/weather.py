@@ -66,9 +66,11 @@ class Forecast:
         return values[i] if 0 <= i < len(values) else None
 
 
-def snap(lat: float, lon: float) -> Cell:
-    """Nearest lattice cell, so nearby checkpoints and heatmap points share one forecast call."""
-    return tuple(round(round(v / LATTICE_DEG) * LATTICE_DEG, 4) for v in (lat, lon))  # type: ignore[return-value]
+def snap(lat: float, lon: float, step: float = LATTICE_DEG) -> Cell:
+    """Nearest lattice cell, so nearby checkpoints and heatmap points share one forecast call.
+
+    Coarser steps (multiples of LATTICE_DEG) are subsets of the base lattice, so they share cache entries."""
+    return tuple(round(round(v / step) * step, 4) for v in (lat, lon))  # type: ignore[return-value]
 
 
 def _sum(a: float | None, b: float | None) -> float | None:

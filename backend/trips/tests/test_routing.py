@@ -54,25 +54,17 @@ def test_coast_routes_stay_inside_the_thresholds(respx_mock):
     assert max(r.distance_mi for r in result.routes) <= 1.5 * shortest
 
 
-def test_short_trip_asks_for_more_alternatives_once(respx_mock):
-    first = load_fixture("tomtom_chicago_milwaukee.json")  # 3 routes, one a 2.15x detour -> only 2 usable
-    more = load_fixture("tomtom_chicago_milwaukee_more.json")  # 6 routes, a third distinct one exists
-    route = respx_mock.get(url__regex=URL).mock(
-        side_effect=[httpx.Response(200, json=first), httpx.Response(200, json=more)]
-    )
+def test_a_short_trip_is_one_request_and_its_detour_third_route_is_dropped(respx_mock):
+    route = respx_mock.get(url__regex=URL).respond(json=load_fixture("tomtom_chicago_milwaukee.json"))
     result = routing.fetch_routes(CHICAGO, MILWAUKEE, DEPART, 40_000)
-    assert route.call_count == 2
-    assert dict(route.calls[1].request.url.params)["maxAlternatives"] == "5"
-    assert len(result.routes) == 3 and result.warnings == []
+    assert route.call_count == 1 and len(result.routes) == 2  # the third is a 2.15x detour
     assert any("1.5x" in reason for _, reason in result.dropped)
 
 
 def test_reports_what_exists_when_three_cannot_be_found(respx_mock):
-    first = load_fixture("tomtom_chicago_milwaukee.json")
-    route = respx_mock.get(url__regex=URL).respond(json=first)  # the second request returns the same
+    route = respx_mock.get(url__regex=URL).respond(json=load_fixture("tomtom_chicago_milwaukee.json"))
     result = routing.fetch_routes(CHICAGO, MILWAUKEE, DEPART, 40_000)
-    assert route.call_count == 2  # asked for more once, not in a loop
-    assert len(result.routes) == 2
+    assert route.call_count == 1 and len(result.routes) == 2
     assert result.warnings == ["Only 2 distinct route(s) found for this trip."]
 
 
