@@ -4,6 +4,8 @@ from datetime import UTC, datetime, timedelta, timezone
 import httpx
 import pytest
 
+from trips.domain.checkpoints import build_checkpoints
+from trips.domain.routes_select import Selection
 from trips.integrations import routing
 from trips.integrations.http import IntegrationError
 from trips.tests.conftest import load_fixture
@@ -54,18 +56,62 @@ def test_coast_routes_stay_inside_the_thresholds(respx_mock):
     assert max(r.distance_mi for r in result.routes) <= 1.5 * shortest
 
 
-def test_a_short_trip_is_one_request_and_its_detour_third_route_is_dropped(respx_mock):
-    route = respx_mock.get(url__regex=URL).respond(json=load_fixture("tomtom_chicago_milwaukee.json"))
+def test_a_detour_third_route_is_dropped(respx_mock):
+    respx_mock.get(url__regex=URL).respond(json=load_fixture("tomtom_chicago_milwaukee.json"))
     result = routing.fetch_routes(CHICAGO, MILWAUKEE, DEPART, 40_000)
-    assert route.call_count == 1 and len(result.routes) == 2  # the third is a 2.15x detour
+    assert len(result.routes) == 2  # the third is a 2.15x detour
     assert any("1.5x" in reason for _, reason in result.dropped)
 
 
 def test_reports_what_exists_when_three_cannot_be_found(respx_mock):
     route = respx_mock.get(url__regex=URL).respond(json=load_fixture("tomtom_chicago_milwaukee.json"))
     result = routing.fetch_routes(CHICAGO, MILWAUKEE, DEPART, 40_000)
-    assert route.call_count == 1 and len(result.routes) == 2
+    assert route.call_count == 5  # the request, then both sides at two widths; all duplicate the first
+    assert len(result.routes) == 2
     assert result.warnings == ["Only 2 distinct route(s) found for this trip."]
+
+
+VIA_URL = r"https://api\.tomtom\.com/routing/1/calculateRoute/[^:/]+:[^:/]+:[^:/]+/json.*"
+BASE_URL = r"https://api\.tomtom\.com/routing/1/calculateRoute/[^:/]+:[^:/]+/json.*"
+
+
+def test_a_missing_third_route_is_found_through_a_via_point(respx_mock):
+    respx_mock.get(url__regex=BASE_URL).respond(json=load_fixture("tomtom_chicago_milwaukee.json"))
+    # one side of the trip is Lake Michigan: TomTom refuses it and that variant is skipped
+    via = respx_mock.get(url__regex=VIA_URL).mock(
+        side_effect=[
+            httpx.Response(200, json=load_fixture("tomtom_chicago_milwaukee_via.json")),
+            httpx.Response(400),
+        ]
+    )
+    result = routing.fetch_routes(CHICAGO, MILWAUKEE, DEPART, 40_000)
+    assert via.call_count == 2 and len(result.routes) == 3 and result.warnings == []
+    found = next(c for c in result.routes if c.id.startswith("v"))
+    # the two legs are joined end to end, so `progress` indexes still land inside the points
+    assert result.progress[found.id][-1][0] == len(found.points) - 1
+    cps = build_checkpoints(found.points, result.progress[found.id], DEPART, 25)
+    assert cps[0].mile == 0 and cps[-1].mile == pytest.approx(found.distance_mi, abs=0.5)
+
+
+def test_long_detours_used_to_reach_three_routes_are_called_out(respx_mock, monkeypatch):
+    respx_mock.get(url__regex=URL).respond(json=load_fixture("tomtom_denver_saltlake.json"))
+    fast, mid, slow = routing._select(load_fixture("tomtom_denver_saltlake.json")["routes"]).routes
+    monkeypatch.setattr(routing, "select_routes", lambda _c: Selection([fast, mid, slow], detours=[slow.id]))
+    result = routing.fetch_routes(DENVER, SLC, DEPART, 40_000)
+    assert len(result.routes) == 3 and "long detours" in result.warnings[0]
+
+
+def test_failed_via_requests_leave_the_routes_we_have(respx_mock):
+    respx_mock.get(url__regex=BASE_URL).respond(json=load_fixture("tomtom_chicago_milwaukee.json"))
+    respx_mock.get(url__regex=VIA_URL).respond(503)
+    result = routing.fetch_routes(CHICAGO, MILWAUKEE, DEPART, 40_000)
+    assert len(result.routes) == 2 and result.warnings == ["Only 2 distinct route(s) found for this trip."]
+
+
+def test_no_via_requests_when_three_routes_already_exist(respx_mock):
+    respx_mock.get(url__regex=URL).respond(json=load_fixture("tomtom_denver_saltlake.json"))
+    routing.fetch_routes(DENVER, SLC, DEPART, 40_000)
+    assert len(respx_mock.calls) == 1
 
 
 def test_same_hour_and_weight_bucket_is_served_from_cache(respx_mock):

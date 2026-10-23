@@ -49,10 +49,27 @@ def test_near_duplicate_is_dropped_with_reason():
 
 
 def test_absurd_detour_is_dropped():
-    long_miles = DEG_MI * 1.6
-    sel = select_routes([cand("a", line(0), 3000), cand("far", line(0.5), 9000, miles=long_miles)])
+    sel = select_routes([cand("a", line(0), 3000), cand("far", line(0.5), 9000, miles=DEG_MI * 2.5)])
     assert ids(sel) == ["a"]
-    assert "longer" in sel.dropped[0][1]
+    assert "longer" in sel.dropped[0][1] and sel.detours == []
+
+
+def test_a_long_detour_fills_a_missing_route_and_is_flagged():
+    far = cand("far", line(0.5), 9000, miles=DEG_MI * 1.6)
+    sel = select_routes([cand("a", line(0), 3000), far, cand("b", line(1.0), 4000)])
+    assert ids(sel) == ["a", "b", "far"]  # still fastest first
+    assert sel.detours == ["far"] and sel.dropped == []
+
+
+def test_a_good_route_is_preferred_over_a_detour_and_detours_never_duplicate():
+    far = cand("far", line(0.5), 3500, miles=DEG_MI * 1.6)
+    twin = cand("twin", line(0), 9000, miles=DEG_MI * 1.6)  # same road as "a" and too long
+    others = [cand("b", line(1.0), 4000), cand("c", line(1.5), 5000)]
+    sel = select_routes([cand("a", line(0), 3000), far, twin, *others])
+    assert ids(sel) == ["a", "b", "c"] and sel.detours == []
+    assert [d[0] for d in sel.dropped] == ["far"]
+    only = select_routes([cand("a", line(0), 3000), twin])
+    assert ids(only) == ["a"] and only.detours == []  # a detour on the same road is still a duplicate
 
 
 def test_at_most_three_and_returns_fewer_when_that_is_all_there_is():

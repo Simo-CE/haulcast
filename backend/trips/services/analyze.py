@@ -65,7 +65,7 @@ def _resolve(value: str | Place, field: str) -> Place:
         return value
     place = geocode(value)
     if place is None:
-        raise InputError(field, f"Could not find a US location for {value!r}. Try a fuller address.")
+        raise InputError(field, f"Could not find {value!r} in North America. Try a fuller address.")
     return place
 
 

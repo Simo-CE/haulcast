@@ -11,7 +11,6 @@ from trips.integrations.http import IntegrationError, get_json
 PHOTON_URL = "https://photon.komoot.io/api/"
 TOMTOM_URL = "https://api.tomtom.com/search/2/geocode/{q}.json"
 TOMTOM_SEARCH_URL = "https://api.tomtom.com/search/2/search/{q}.json"
-US_BBOX = "-125,24,-66,50"
 MIN_CHARS = 3
 CACHE_SECONDS = 24 * 3600
 
@@ -55,7 +54,7 @@ def autocomplete(query: str) -> list[Place]:
 
 
 def _photon(query: str) -> list[Place]:
-    data = get_json("Photon", PHOTON_URL, {"q": query, "limit": 5, "lang": "en", "bbox": US_BBOX})
+    data = get_json("Photon", PHOTON_URL, {"q": query, "limit": 5, "lang": "en"})
     try:
         return [
             Place(_photon_label(f["properties"]), *reversed(f["geometry"]["coordinates"][:2]))
@@ -66,8 +65,7 @@ def _photon(query: str) -> list[Place]:
 
 
 def _tomtom_typeahead(query: str) -> list[Place]:
-    params = {"key": settings.TOMTOM_KEY, "typeahead": "true", "countrySet": "US", "limit": 5,
-              "idxSet": "Geo,PAD"}
+    params = {"key": settings.TOMTOM_KEY, "typeahead": "true", "limit": 5, "idxSet": "Geo,PAD"}
     data = get_json("TomTom search", TOMTOM_SEARCH_URL.format(q=quote(query, safe="")), params)
     try:
         return [Place(r["address"]["freeformAddress"], r["position"]["lat"], r["position"]["lon"])
@@ -87,7 +85,7 @@ def geocode(address: str) -> Place | None:
     data = get_json(
         "TomTom geocoding",
         TOMTOM_URL.format(q=quote(address, safe="")),
-        {"key": settings.TOMTOM_KEY, "countrySet": "US", "limit": 1},
+        {"key": settings.TOMTOM_KEY, "limit": 1},
     )
     try:
         results = data["results"]

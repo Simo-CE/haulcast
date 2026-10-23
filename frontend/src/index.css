@@ -1,0 +1,49 @@
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  overscroll-behavior: none;
+}
+
+/* MapLibre popups follow the MUI colour scheme */
+.maplibregl-popup-content {
+  background: var(--mui-palette-background-paper);
+  color: var(--mui-palette-text-primary);
+  border-radius: 10px;
+  padding: 12px 14px;
+  box-shadow: 0 4px 18px rgb(0 0 0 / 0.28);
+  font-family: inherit;
+}
+
+.maplibregl-popup-close-button {
+  color: var(--mui-palette-text-secondary);
+  font-size: 20px;
+  padding: 2px 8px;
+}
+
+.maplibregl-popup-anchor-bottom .maplibregl-popup-tip {
+  border-top-color: var(--mui-palette-background-paper);
+}
+
+.maplibregl-popup-anchor-top .maplibregl-popup-tip {
+  border-bottom-color: var(--mui-palette-background-paper);
+}
+
+.maplibregl-popup-anchor-left .maplibregl-popup-tip {
+  border-right-color: var(--mui-palette-background-paper);
+}
+
+.maplibregl-popup-anchor-right .maplibregl-popup-tip {
+  border-left-color: var(--mui-palette-background-paper);
+}
+
+/* phones zoom by pinching; the +/- buttons would sit under the full-width legend */
+@media (max-width: 899px) {
+  .maplibregl-ctrl-top-right {
+    display: none;
+  }
+}

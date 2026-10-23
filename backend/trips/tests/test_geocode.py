@@ -18,7 +18,7 @@ def test_autocomplete_returns_labelled_coordinates(respx_mock):
     assert places[0] == geocode.Place("Denver, Colorado", 39.7392364, -104.984862)
     assert places[2].label == "Denver International Airport, 8500 Peña Blvd, Denver, Colorado"
     q = dict(route.calls.last.request.url.params)
-    assert q["bbox"] == "-125,24,-66,50" and q["limit"] == "5" and q["lang"] == "en"
+    assert "bbox" not in q and q["limit"] == "5" and q["lang"] == "en"
     assert route.calls.last.request.headers["user-agent"].startswith("Haulcast")
 
 
@@ -49,7 +49,7 @@ def test_typed_address_resolves_through_tomtom(respx_mock):
     assert place == geocode.Place("1600 Pennsylvania Avenue Northwest, Washington, DC 20500",
                                   38.8977018, -77.0365431)
     q = dict(route.calls.last.request.url.params)
-    assert q["countrySet"] == "US" and q["key"] == "test-key"
+    assert "countrySet" not in q and q["key"] == "test-key"
     assert "1600%20Pennsylvania" in str(route.calls.last.request.url)
     geocode.geocode("1600 pennsylvania ave nw, washington, dc")
     assert route.call_count == 1
@@ -86,7 +86,7 @@ def test_photon_outage_falls_back_to_tomtom_typeahead(respx_mock):
     places = geocode.autocomplete("Denv")
     assert places[0] == geocode.Place("Denver, CO", 39.738453, -104.984853) and len(places) == 5
     q = dict(tomtom.calls.last.request.url.params)
-    assert q["typeahead"] == "true" and q["countrySet"] == "US" and q["key"] == "test-key"
+    assert q["typeahead"] == "true" and "countrySet" not in q and q["key"] == "test-key"
     assert photon.call_count == 2  # one retry first
     geocode.autocomplete("denv")
     assert tomtom.call_count == 1  # the fallback answer is cached too
