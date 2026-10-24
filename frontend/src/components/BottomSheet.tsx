@@ -5,11 +5,13 @@ import { type KeyboardEvent, type PointerEvent, type ReactNode, useRef, useState
 interface Props {
   snap: number
   onSnap: (snap: number) => void
+  /** pinned between the handle and the scrolling content, so it stays visible at every snap point */
+  dock?: ReactNode
   children: ReactNode
 }
 
 /** Draggable bottom sheet for phones. The handle is also a button: click cycles, arrow keys step. */
-export function BottomSheet({ snap, onSnap, children }: Props) {
+export function BottomSheet({ snap, onSnap, dock, children }: Props) {
   const [dragPx, setDragPx] = useState<number | null>(null)
   const start = useRef<{ y: number; height: number; moved: boolean } | null>(null)
   const viewport = () => window.innerHeight
@@ -87,6 +89,7 @@ export function BottomSheet({ snap, onSnap, children }: Props) {
       >
         <Box component="span" sx={{ width: 44, height: 5, borderRadius: 3, bgcolor: 'text.disabled' }} />
       </Box>
+      {dock}
       <Box sx={{ flex: 1, overflowY: 'auto', px: 2, pb: 'calc(16px + env(safe-area-inset-bottom))' }}>{children}</Box>
     </Box>
   )

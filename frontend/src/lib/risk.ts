@@ -13,11 +13,11 @@ interface LevelStyle {
 }
 
 /**
- * Colour-blind-safe ramp (blue, yellow, orange, red, near-black purple): it changes in both hue and
+ * Colour-blind-safe ramp (teal green for safe, then yellow, orange, red, near-black purple): it changes in both hue and
  * lightness, and every use pairs it with the level's text label.
  */
 export const LEVEL_STYLES: Record<LevelKey, LevelStyle> = {
-  Low: { light: '#2b7bba', dark: '#6cb4ee', lightText: '#ffffff', darkText: '#0b2438' },
+  Low: { light: '#12805f', dark: '#4fd1a8', lightText: '#ffffff', darkText: '#06251c' },
   Moderate: { light: '#f2c230', dark: '#f2c230', lightText: '#2b2100', darkText: '#2b2100' },
   High: { light: '#e8741a', dark: '#f2913f', lightText: '#1f0f00', darkText: '#1f0f00' },
   Severe: { light: '#c1272d', dark: '#ee5a5f', lightText: '#ffffff', darkText: '#2a0507' },

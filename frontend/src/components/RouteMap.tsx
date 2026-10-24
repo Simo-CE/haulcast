@@ -4,21 +4,17 @@ import Box from '@mui/material/Box'
 import Stack from '@mui/material/Stack'
 import Typography from '@mui/material/Typography'
 import { useColorScheme } from '@mui/material/styles'
-import type { ExpressionSpecification, LngLatBoundsLike, MapLayerMouseEvent } from 'maplibre-gl'
+import type { ExpressionSpecification, LngLatBoundsLike, MapLayerMouseEvent, StyleSpecification } from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react'
 import Map, { Layer, Marker, NavigationControl, Popup, Source, type MapRef } from 'react-map-gl/maplibre'
 import { formatEta, formatNumber } from '../lib/format'
+import { loadBaseStyle, restyle } from '../lib/mapStyle'
 import { LEVEL_STYLES } from '../lib/risk'
 import type { AnalyzeResponse } from '../types/api'
 import { LevelBadge } from './LevelBadge'
 import { MapLegend } from './MapLegend'
 import { RouteBadge } from './RouteBadge'
-
-const STYLES = {
-  light: 'https://tiles.openfreemap.org/styles/liberty',
-  dark: 'https://tiles.openfreemap.org/styles/dark',
-}
 
 const ROUTE_COLORS = {
   light: { main: '#0f1b2d', other: '#8a949e', casing: '#ffffff' },
@@ -62,6 +58,11 @@ export function RouteMap({ result, selectedId, hoveredId, active, bottomInset, o
   const mapRef = useRef<MapRef>(null)
   const [loaded, setLoaded] = useState(false)
   const [cursor, setCursor] = useState('')
+  const [baseStyle, setBaseStyle] = useState<StyleSpecification | null>(null)
+  useEffect(() => {
+    loadBaseStyle().then(setBaseStyle, () => setBaseStyle(null))
+  }, [])
+  const mapStyle = useMemo(() => (baseStyle ? restyle(baseStyle, scheme) : null), [baseStyle, scheme])
 
   const routeLines = useMemo(
     () => ({
@@ -125,9 +126,10 @@ export function RouteMap({ result, selectedId, hoveredId, active, bottomInset, o
   return (
     <Box role="region" aria-label="Route map" sx={{ position: 'absolute', inset: 0 }}>
       <MapLegend showUnknown={Boolean(result?.routes.some((r) => r.unknownMi > 0))} />
+      {mapStyle && (
       <Map
         ref={mapRef}
-        mapStyle={STYLES[scheme]}
+        mapStyle={mapStyle}
         initialViewState={{ longitude: -98.5, latitude: 39.5, zoom: 3.6 }}
         attributionControl={{ compact: true }}
         interactiveLayerIds={['checkpoints', 'route-line']}
@@ -220,6 +222,7 @@ export function RouteMap({ result, selectedId, hoveredId, active, bottomInset, o
           </Popup>
         )}
       </Map>
+      )}
     </Box>
   )
 }

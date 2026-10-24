@@ -42,13 +42,17 @@ export function Verdict({ result }: { result: AnalyzeResponse }) {
   const arrival = best.checkpoints.at(-1)?.eta
   return (
     <Box
-      sx={{
-        bgcolor: 'primary.main',
-        color: 'primary.contrastText',
-        borderRadius: CARD_RADIUS,
-        p: 2,
-        boxShadow: '0 10px 30px -12px rgb(0 0 0 / 0.45)',
-      }}
+      sx={[
+        {
+          bgcolor: 'primary.main',
+          color: 'primary.contrastText',
+          borderRadius: CARD_RADIUS,
+          p: 2,
+          boxShadow: '0 10px 30px -12px rgb(0 0 0 / 0.45)',
+        },
+        // dark mode: a deep blue card with white text, not a pale slab
+        (theme) => theme.applyStyles('dark', { bgcolor: '#1c3d6e', color: '#ffffff' }),
+      ]}
     >
       <Stack direction="row" sx={{ alignItems: 'center', gap: 0.75, opacity: 0.85 }}>
         <CheckCircleIcon sx={{ fontSize: 15, color: 'secondary.main' }} />

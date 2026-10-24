@@ -5,14 +5,19 @@ import Divider from '@mui/material/Divider'
 import Stack from '@mui/material/Stack'
 import useMediaQuery from '@mui/material/useMediaQuery'
 import { useMutation } from '@tanstack/react-query'
-import { useState } from 'react'
+import { type ReactNode, useState } from 'react'
 import { analyze, ApiError } from './api/client'
 import { BottomSheet } from './components/BottomSheet'
+import { HeatmapLayer } from './components/HeatmapLayer'
 import { Header } from './components/Header'
 import { ResultsView } from './components/ResultsView'
 import { type ActiveCheckpoint, RouteMap } from './components/RouteMap'
+import { TimeDock } from './components/TimeDock'
+import { TimelineProvider } from './components/TimelineProvider'
 import { TripForm } from './components/TripForm'
 import { TripSummary } from './components/TripSummary'
+import { TruckMarker } from './components/TruckMarker'
+import { arrivalHour } from './lib/timeline'
 import { SHEET_FULL, SHEET_HALF, SNAPS } from './lib/sheet'
 import { type FormErrors, initialValues, type TripFormValues } from './lib/tripForm'
 import type { AnalyzeRequest } from './types/api'
@@ -45,6 +50,7 @@ export default function App() {
   const error = mutation.error
   const serverErrors: FormErrors = error instanceof ApiError && error.kind === 'validation' ? (error.fields as FormErrors) : {}
   const result = mutation.data ?? null
+  const selectedRoute = result?.routes.find((r) => r.id === selectedId)
 
   const showSummary = result && !editing && !mutation.isPending && !error
   const form = showSummary ? (
@@ -97,11 +103,27 @@ export default function App() {
       bottomInset={desktop ? 0 : Math.min(SNAPS[snap], SNAPS[SHEET_HALF]) * window.innerHeight}
       onSelectRoute={setSelectedId}
       onActivate={setActive}
+    >
+      {result && <HeatmapLayer heatmap={result.heatmap} routes={result.routes} />}
+      {result && selectedRoute && <TruckMarker route={selectedRoute} startTime={result.heatmap.startTime} />}
+    </RouteMap>
+  )
+  const dock = result && (
+    <TimeDock
+      heatmap={result.heatmap}
+      arrival={selectedRoute ? arrivalHour(selectedRoute, result.heatmap.startTime) : undefined}
+      variant={desktop ? 'floating' : 'sheet'}
     />
   )
 
+  const wrap = (content: ReactNode) => (
+    <TimelineProvider max={result ? result.heatmap.hours - 1 : 1} resetKey={result}>
+      {content}
+    </TimelineProvider>
+  )
+
   if (desktop) {
-    return (
+    return wrap(
       <Box sx={{ display: 'grid', gridTemplate: '56px 1fr / 460px 1fr', height: '100dvh', bgcolor: 'background.default' }}>
         <Box sx={{ gridColumn: '1 / -1', borderBottom: 1, borderColor: 'divider', bgcolor: 'background.paper' }}>
           <Header showTagline />
@@ -109,17 +131,20 @@ export default function App() {
         <Box component="main" sx={{ overflowY: 'auto', borderRight: 1, borderColor: 'divider' }}>
           {panel}
         </Box>
-        <Box sx={{ position: 'relative' }}>{map}</Box>
-      </Box>
+        <Box sx={{ position: 'relative' }}>
+          {map}
+          {dock}
+        </Box>
+      </Box>,
     )
   }
-  return (
+  return wrap(
     <Box component="main" sx={{ position: 'relative', height: '100dvh', overflow: 'hidden' }}>
       {map}
-      <BottomSheet snap={snap} onSnap={setSnap}>
+      <BottomSheet snap={snap} onSnap={setSnap} dock={dock}>
         {panel}
       </BottomSheet>
-    </Box>
+    </Box>,
   )
 }
 
