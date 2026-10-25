@@ -9,6 +9,7 @@ from django.core.cache import cache
 from trips.integrations.http import IntegrationError, get_json
 
 PHOTON_URL = "https://photon.komoot.io/api/"
+PHOTON_REVERSE_URL = "https://photon.komoot.io/reverse"
 TOMTOM_URL = "https://api.tomtom.com/search/2/geocode/{q}.json"
 TOMTOM_SEARCH_URL = "https://api.tomtom.com/search/2/search/{q}.json"
 MIN_CHARS = 3
@@ -62,6 +63,23 @@ def _photon(query: str) -> list[Place]:
         ]
     except (KeyError, IndexError, TypeError):
         raise IntegrationError("Photon response has an unexpected shape") from None
+
+
+def reverse(lat: float, lon: float) -> Place | None:
+    """Name for a dropped pin (Photon reverse); None when nothing is near. Keeps the pin's own coordinates."""
+    lat, lon = round(lat, 4), round(lon, 4)  # about 10 m: nearby pins share a cache entry
+    key = _key("rev", f"{lat},{lon}")
+    if (hit := cache.get(key)) is not None:
+        return hit or None
+    data = get_json("Photon", PHOTON_REVERSE_URL, {"lat": lat, "lon": lon, "limit": 1, "lang": "en"})
+    try:
+        features = data["features"]
+        label = _photon_label(features[0]["properties"]) if features else ""
+        place = Place(label or f"{lat}, {lon}", lat, lon) if features else None
+    except (KeyError, IndexError, TypeError):
+        raise IntegrationError("Photon response has an unexpected shape") from None
+    cache.set(key, place or (), CACHE_SECONDS)
+    return place
 
 
 def _tomtom_typeahead(query: str) -> list[Place]:

@@ -15,13 +15,18 @@ export interface Mocks {
   /** what /api/analyze answers; a function is called per request */
   analyze?: Json | ((n: number) => { status: number; body: unknown })
   realMap?: boolean
+  /** suggestions for /api/geocode (default none) */
+  places?: { label: string; lat: number; lon: number }[]
+  /** status and body for /api/reverse (default: no place found) */
+  reverse?: { status: number; body: unknown }
   /** collects every /api request path, so a test can assert none happened */
   apiCalls?: string[]
 }
 
-export async function mockApi(page: Page, { analyze, realMap = false, apiCalls = [] }: Mocks = {}) {
+export async function mockApi(page: Page, { analyze, realMap = false, apiCalls = [], places = [], reverse }: Mocks = {}) {
   let analyzeCalls = 0
-  await page.route('**/api/geocode*', (route) => json(route, []))
+  await page.route('**/api/geocode*', (route) => json(route, places))
+  await page.route('**/api/reverse*', (route) => json(route, reverse?.body ?? { error: 'No place found here' }, reverse?.status ?? 404))
   await page.route('**/api/analyze', (route) => {
     apiCalls.push('/api/analyze')
     analyzeCalls += 1

@@ -104,3 +104,36 @@ def test_malformed_fallback_is_an_error(respx_mock):
     respx_mock.get(url__regex=TT_SEARCH).respond(json={"nope": 1})
     with pytest.raises(IntegrationError, match="unexpected shape"):
         geocode.autocomplete("Denv")
+
+
+REVERSE = r"https://photon\.komoot\.io/reverse.*"
+
+
+def test_reverse_names_a_pin_and_keeps_the_pin_coordinates(respx_mock):
+    route = respx_mock.get(url__regex=REVERSE).respond(json=load_fixture("photon_reverse_wyoming.json"))
+    place = geocode.reverse(41.60001, -109.20004)
+    assert place == geocode.Place("Dwight D. Eisenhower Highway, Rock Springs, Wyoming", 41.6, -109.2)
+    assert geocode.reverse(41.6, -109.2) == place and route.call_count == 1  # cached by rounded coordinates
+
+
+def test_reverse_with_nothing_nearby_is_none_and_errors_are_not_swallowed(respx_mock, sleeps):
+    respx_mock.get(url__regex=REVERSE).respond(json={"features": []})
+    assert geocode.reverse(0.0, -30.0) is None
+    respx_mock.get(url__regex=REVERSE).respond(json={"nope": 1})
+    with pytest.raises(IntegrationError):
+        geocode.reverse(1.0, 1.0)
+
+
+def test_reverse_endpoint(respx_mock):
+    from rest_framework.test import APIClient
+
+    respx_mock.get(url__regex=REVERSE).respond(json=load_fixture("photon_reverse_wyoming.json"))
+    client = APIClient()
+    ok = client.get("/api/reverse", {"lat": 41.6, "lon": -109.2})
+    assert ok.status_code == 200 and ok.json()["label"].startswith("Dwight D. Eisenhower")
+    assert client.get("/api/reverse", {"lat": "x", "lon": 1}).status_code == 400
+    assert client.get("/api/reverse", {"lat": 95, "lon": 1}).status_code == 400
+    respx_mock.get(url__regex=REVERSE).respond(json={"features": []})
+    assert client.get("/api/reverse", {"lat": 2, "lon": 2}).status_code == 404
+    respx_mock.get(url__regex=REVERSE).respond(503)
+    assert client.get("/api/reverse", {"lat": 3, "lon": 3}).status_code == 502

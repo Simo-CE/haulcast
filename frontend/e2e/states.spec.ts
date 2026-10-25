@@ -95,8 +95,8 @@ test.describe('form validation (no request is sent)', () => {
   test.beforeEach(async ({ page }) => {
     await mockApi(page)
     await page.goto('/')
-    await page.getByLabel('Origin').fill('Denver')
-    await page.getByLabel('Destination').fill('Salt Lake City')
+    await page.getByLabel('Origin', { exact: true }).fill('Denver')
+    await page.getByLabel('Destination', { exact: true }).fill('Salt Lake City')
     const options = page.getByRole('button', { name: /every \d+ mi/ })
     if (await options.count()) await options.click() // phone: options sit behind a summary line
   })
@@ -118,7 +118,7 @@ test.describe('form validation (no request is sent)', () => {
   })
 
   test('same origin and destination', async ({ page }) => {
-    await page.getByLabel('Destination').fill('denver')
+    await page.getByLabel('Destination', { exact: true }).fill('denver')
     await submit(page)
     await expect(page.getByText('Pick a destination different from the origin.')).toBeVisible()
   })

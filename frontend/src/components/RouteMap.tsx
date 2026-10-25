@@ -1,8 +1,7 @@
-import FlagIcon from '@mui/icons-material/Flag'
-import TripOriginIcon from '@mui/icons-material/TripOrigin'
 import Alert from '@mui/material/Alert'
 import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
+import Paper from '@mui/material/Paper'
 import Stack from '@mui/material/Stack'
 import Typography from '@mui/material/Typography'
 import { useColorScheme } from '@mui/material/styles'
@@ -13,8 +12,9 @@ import Map, { Layer, Marker, NavigationControl, Popup, Source, type MapRef } fro
 import { formatEta, formatNumber } from '../lib/format'
 import { loadBaseStyle, plainStyle, restyle } from '../lib/mapStyle'
 import { LEVEL_STYLES } from '../lib/risk'
-import type { AnalyzeResponse } from '../types/api'
+import type { AnalyzeResponse, Place } from '../types/api'
 import { LevelBadge } from './LevelBadge'
+import { PlaceMarker, PREVIEW_FLIGHT_MS } from './PlaceMarker'
 import { MapLegend } from './MapLegend'
 import { RouteBadge } from './RouteBadge'
 
@@ -37,9 +37,16 @@ interface Props {
   bottomInset: number
   onSelectRoute: (id: string) => void
   onActivate: (active: ActiveCheckpoint | null) => void
+  /** places chosen in the form before any analysis: the map shows them and keeps them in view */
+  preview: { origin: Place | null; destination: Place | null }
+  /** a long press on the map: the app decides whether it sets the origin or the destination */
+  onLongPress: (lon: number, lat: number) => void
   /** Slot for layers drawn under the routes (heatmap) */
   children?: ReactNode
 }
+
+/** how long a press has to be held to count as a long press */
+const LONG_PRESS_MS = 550
 
 const prefersReducedMotion = (): boolean => window.matchMedia('(prefers-reduced-motion: reduce)').matches
 
@@ -53,7 +60,7 @@ function boundsOf(result: AnalyzeResponse): LngLatBoundsLike {
   return [[w, s], [e, n]]
 }
 
-export function RouteMap({ result, selectedId, hoveredId, active, bottomInset, onSelectRoute, onActivate, children }: Props) {
+export function RouteMap({ result, selectedId, hoveredId, active, bottomInset, onSelectRoute, onActivate, preview, onLongPress, children }: Props) {
   const { colorScheme } = useColorScheme()
   const scheme = colorScheme === 'dark' ? 'dark' : 'light'
   const colors = ROUTE_COLORS[scheme]
@@ -111,6 +118,49 @@ export function RouteMap({ result, selectedId, hoveredId, active, bottomInset, o
     })
   }, [result, loaded, bottomInset])
 
+  // Before any analysis: fly to a single chosen place, or fit both places in view (zooming out as far as needed).
+  const { origin: previewOrigin, destination: previewDestination } = preview
+  useEffect(() => {
+    const map = mapRef.current
+    if (result || !loaded || !map) return
+    const duration = prefersReducedMotion() ? 0 : PREVIEW_FLIGHT_MS
+    if (previewOrigin && previewDestination) {
+      const [a, b] = [previewOrigin, previewDestination]
+      map.fitBounds(
+        [[Math.min(a.lon, b.lon), Math.min(a.lat, b.lat)], [Math.max(a.lon, b.lon), Math.max(a.lat, b.lat)]],
+        { padding: { top: 90, left: 60, right: 60, bottom: bottomInset + 70 }, duration, maxZoom: 10 },
+      )
+    } else if (previewOrigin || previewDestination) {
+      const place = (previewOrigin ?? previewDestination)!
+      // offset keeps the place in the part of the map the phone sheet leaves free
+      if (!map.getBounds().contains([place.lon, place.lat])) {
+        map.flyTo({ center: [place.lon, place.lat], zoom: Math.max(map.getZoom(), 7), offset: [0, -bottomInset / 2], duration })
+      }
+    }
+  }, [previewOrigin, previewDestination, result, loaded, bottomInset])
+
+  // Press and hold sets the next empty place (see App). Moving, zooming or lifting before the delay cancels it.
+  const pressTimer = useRef<ReturnType<typeof setTimeout>>(undefined)
+  const swallowClick = useRef(false)
+  const cancelPress = () => clearTimeout(pressTimer.current)
+  const startPress = (event: { lngLat: { lng: number; lat: number } }) => {
+    if (result) return
+    cancelPress()
+    pressTimer.current = setTimeout(() => {
+      swallowClick.current = true // the release that follows is not a click
+      setTimeout(() => (swallowClick.current = false), 500)
+      onLongPress(event.lngLat.lng, event.lngLat.lat)
+    }, LONG_PRESS_MS)
+  }
+  useEffect(() => cancelPress, [])
+  useEffect(() => {
+    // a long press on a phone would otherwise open the browser's own menu over the map
+    const container = mapRef.current?.getContainer()
+    const stop = (e: Event) => e.preventDefault()
+    container?.addEventListener('contextmenu', stop)
+    return () => container?.removeEventListener('contextmenu', stop)
+  }, [loaded])
+
   const activeCheckpoint =
     active && selectedRoute?.id === active.routeId ? selectedRoute.checkpoints[active.index] : undefined
   useEffect(() => {
@@ -128,6 +178,7 @@ export function RouteMap({ result, selectedId, hoveredId, active, bottomInset, o
   ]
 
   const onClick = (event: MapLayerMouseEvent) => {
+    if (swallowClick.current) return
     const feature = event.features?.[0]
     if (!feature) return onActivate(null)
     if (feature.layer.id === 'checkpoints' && selectedId) {
@@ -140,6 +191,16 @@ export function RouteMap({ result, selectedId, hoveredId, active, bottomInset, o
   return (
     <Box role="region" aria-label="Route map" sx={{ position: 'absolute', inset: 0 }}>
       <MapLegend showUnknown={Boolean(result?.routes.some((r) => r.unknownMi > 0))} />
+      {!result && !(previewOrigin && previewDestination) && (
+        <Paper
+          elevation={3}
+          sx={{ position: 'absolute', zIndex: 1, left: '50%', transform: 'translateX(-50%)', bottom: bottomInset + 28, px: 1.75, py: 0.75, borderRadius: '999px', maxWidth: 'calc(100% - 24px)', pointerEvents: 'none' }}
+        >
+          <Typography variant="caption" sx={{ fontWeight: 600 }}>
+            Press and hold on the map to set your {previewOrigin ? 'destination' : 'origin'}
+          </Typography>
+        </Paper>
+      )}
       {styleFailed && !baseStyle && (
         <Alert
           severity="warning"
@@ -159,6 +220,13 @@ export function RouteMap({ result, selectedId, hoveredId, active, bottomInset, o
         cursor={cursor}
         onLoad={() => setLoaded(true)}
         onClick={onClick}
+        onMouseDown={startPress}
+        onTouchStart={(e) => (e.originalEvent.touches.length > 1 ? cancelPress() : startPress(e))}
+        onMouseUp={cancelPress}
+        onTouchEnd={cancelPress}
+        onTouchCancel={cancelPress}
+        onDragStart={cancelPress}
+        onZoomStart={cancelPress}
         onMouseEnter={() => setCursor('pointer')}
         onMouseLeave={() => setCursor('')}
       >
@@ -207,14 +275,12 @@ export function RouteMap({ result, selectedId, hoveredId, active, bottomInset, o
                 }}
               />
             </Source>
-            <Marker longitude={result.origin.lon} latitude={result.origin.lat} anchor="center">
-              <TripOriginIcon titleAccess={`Origin: ${result.origin.label}`} sx={{ color: 'text.primary', bgcolor: 'background.paper', borderRadius: '50%' }} />
-            </Marker>
-            <Marker longitude={result.destination.lon} latitude={result.destination.lat} anchor="bottom-left">
-              <FlagIcon titleAccess={`Destination: ${result.destination.label}`} sx={{ color: 'text.primary', fontSize: 30, filter: 'drop-shadow(0 1px 2px rgb(0 0 0 / .4))' }} />
-            </Marker>
+            <PlaceMarker kind="origin" place={result.origin} />
+            <PlaceMarker kind="destination" place={result.destination} />
           </>
         )}
+        {!result && previewOrigin && <PlaceMarker key={`o${previewOrigin.lat},${previewOrigin.lon}`} kind="origin" place={previewOrigin} hop />}
+        {!result && previewDestination && <PlaceMarker key={`d${previewDestination.lat},${previewDestination.lon}`} kind="destination" place={previewDestination} hop />}
         {activeCheckpoint && (
           <Popup
             longitude={activeCheckpoint.lon}

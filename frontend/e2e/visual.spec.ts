@@ -17,6 +17,18 @@ for (const dark of [false, true]) {
       await page.getByRole('button', { name: /checkpoints, hour by hour/ }).first().click() // the table twin of the map
       expect(await scan(page)).toEqual([])
     })
+
+    test('place markers and the long-press hint have 0 violations', async ({ page }) => {
+      await mockApi(page, { places: [{ label: 'Denver, Colorado', lat: 39.7392, lon: -104.9903 }] })
+      await page.goto('/')
+      await setTheme(page, dark)
+      await page.getByLabel('Origin', { exact: true }).fill('Denv')
+      await page.getByRole('option', { name: 'Denver, Colorado' }).click()
+      await expect(page.getByTestId('marker-origin')).toHaveCSS('opacity', '1', { timeout: 3000 })
+      expect(await scan(page)).toEqual([])
+      await expect(page.getByText('Press and hold on the map to set your destination')).toBeVisible()
+      expect(await scan(page)).toEqual([])
+    })
   })
 }
 

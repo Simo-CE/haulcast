@@ -8,7 +8,7 @@ from rest_framework.decorators import api_view
 from rest_framework.request import Request
 from rest_framework.response import Response
 
-from trips.integrations.geocode import autocomplete
+from trips.integrations.geocode import autocomplete, reverse
 from trips.integrations.http import IntegrationError
 from trips.serializers import AnalyzeSerializer
 from trips.services.analyze import InputError, analyze
@@ -60,3 +60,21 @@ def geocode_suggestions(request: Request) -> Response:
     except IntegrationError as exc:
         return Response({"error": str(exc)}, status=BAD_GATEWAY)
     return Response([{"label": p.label, "lat": p.lat, "lon": p.lon} for p in places])
+
+
+@api_view(["GET"])
+def reverse_geocode(request: Request) -> Response:
+    """Names a pin dropped on the map: {label, lat, lon}, or 404 when nothing is near."""
+    try:
+        lat, lon = float(request.query_params["lat"]), float(request.query_params["lon"])
+    except (KeyError, ValueError):
+        return Response({"error": "lat and lon are required numbers"}, status=400)
+    if not (-90 <= lat <= 90 and -180 <= lon <= 180):
+        return Response({"error": "lat and lon are out of range"}, status=400)
+    try:
+        place = reverse(lat, lon)
+    except IntegrationError as exc:
+        return Response({"error": str(exc)}, status=BAD_GATEWAY)
+    if place is None:
+        return Response({"error": "No place found here"}, status=404)
+    return Response({"label": place.label, "lat": place.lat, "lon": place.lon})

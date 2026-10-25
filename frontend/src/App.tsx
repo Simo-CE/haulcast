@@ -6,11 +6,12 @@ import Stack from '@mui/material/Stack'
 import useMediaQuery from '@mui/material/useMediaQuery'
 import { useMutation } from '@tanstack/react-query'
 import { type ReactNode, useState } from 'react'
-import { analyze, ApiError, demoStorm } from './api/client'
+import { analyze, ApiError, demoStorm, reverseGeocode } from './api/client'
 import { BottomSheet } from './components/BottomSheet'
 import { HeatmapLayer } from './components/HeatmapLayer'
 import { Header } from './components/Header'
 import { ResultsView } from './components/ResultsView'
+import type { PlaceKind } from './components/PlaceMarker'
 import { type ActiveCheckpoint, RouteMap } from './components/RouteMap'
 import { TimeDock } from './components/TimeDock'
 import { TimelineProvider } from './components/TimelineProvider'
@@ -20,7 +21,10 @@ import { TruckMarker } from './components/TruckMarker'
 import { arrivalHour } from './lib/timeline'
 import { SHEET_FULL, SHEET_HALF, SNAPS } from './lib/sheet'
 import { type FormErrors, initialValues, type TripFormValues } from './lib/tripForm'
-import type { AnalyzeRequest } from './types/api'
+import type { AnalyzeRequest, Place } from './types/api'
+
+/** A form value that already has coordinates (picked from the list or pinned), else null. */
+const asPlace = (value: TripFormValues['origin']): Place | null => (value && typeof value === 'object' ? value : null)
 
 export default function App() {
   const desktop = useMediaQuery(useTheme().breakpoints.up('md'))
@@ -45,6 +49,18 @@ export default function App() {
     setLastRequest(request)
     setEditing(false)
     mutation.mutate(request)
+  }
+
+  // A long press fills the next empty place: origin first, then destination (a third one replaces the destination).
+  // The place is set at once with its coordinates as the name; the real name replaces it if the lookup answers.
+  const onLongPress = (lon: number, lat: number) => {
+    const kind: PlaceKind = values.origin ? 'destination' : 'origin'
+    const pin: Place = { label: `Pinned location (${lat.toFixed(4)}, ${lon.toFixed(4)})`, lat, lon }
+    setValues((v) => ({ ...v, [kind]: pin }))
+    reverseGeocode(lat, lon).then(
+      (named) => setValues((v) => (v[kind] === pin ? { ...v, [kind]: { ...named, lat, lon } } : v)),
+      () => undefined, // no name found: the coordinates label stays
+    )
   }
 
   const error = mutation.error
@@ -104,6 +120,8 @@ export default function App() {
       bottomInset={desktop ? 0 : Math.min(SNAPS[snap], SNAPS[SHEET_HALF]) * window.innerHeight}
       onSelectRoute={setSelectedId}
       onActivate={setActive}
+      preview={{ origin: asPlace(values.origin), destination: asPlace(values.destination) }}
+      onLongPress={onLongPress}
     >
       {result && <HeatmapLayer heatmap={result.heatmap} routes={result.routes} />}
       {result && selectedRoute && <TruckMarker route={selectedRoute} startTime={result.heatmap.startTime} />}
