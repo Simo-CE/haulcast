@@ -2,6 +2,7 @@ import LayersIcon from '@mui/icons-material/Layers'
 import PauseIcon from '@mui/icons-material/Pause'
 import PlayArrowIcon from '@mui/icons-material/PlayArrow'
 import Box from '@mui/material/Box'
+import Chip from '@mui/material/Chip'
 import IconButton from '@mui/material/IconButton'
 import Slider from '@mui/material/Slider'
 import Stack from '@mui/material/Stack'
@@ -52,7 +53,7 @@ function HeatLegend({ scheme, showUnknown }: { scheme: 'light' | 'dark'; showUnk
  * Play/pause, the hour slider, the heatmap switch and the colour key. `floating` is the card on the desktop map;
  * `sheet` is the flat strip that sits above the phone bottom sheet's scrolling content.
  */
-export function TimeDock({ heatmap, arrival, variant }: { heatmap: Heatmap; /** hour the selected route arrives; marked on the slider */ arrival?: number; variant: 'floating' | 'sheet' }) {
+export function TimeDock({ heatmap, arrival, variant, replay = false }: { heatmap: Heatmap; /** hour the selected route arrives; marked on the slider */ arrival?: number; variant: 'floating' | 'sheet'; /** the data is a recorded storm: say so next to the clock */ replay?: boolean }) {
   const { colorScheme } = useColorScheme()
   const scheme = colorScheme === 'dark' ? 'dark' : 'light'
   const { hour, max, playing, scrub, toggle, showHeat, setShowHeat } = useTimelineContext()
@@ -90,6 +91,7 @@ export function TimeDock({ heatmap, arrival, variant }: { heatmap: Heatmap; /** 
         <Box sx={{ flex: 1, minWidth: 0 }}>
           <Typography variant="h2" sx={{ fontVariantNumeric: 'tabular-nums' }}>
             {formatOffset(hour)} <Box component="span" sx={{ color: 'text.secondary', fontWeight: 500 }}>· {clockAt(heatmap.startTime, hour)}</Box>
+            {replay && <Chip size="small" label="Replay" sx={{ ml: 1, height: 20, fontWeight: 700, bgcolor: '#f2c230', color: '#2b2100' }} />}
           </Typography>
         </Box>
         <ToggleButton

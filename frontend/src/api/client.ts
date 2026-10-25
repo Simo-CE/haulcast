@@ -61,6 +61,10 @@ export function analyze(payload: AnalyzeRequest, signal?: AbortSignal): Promise<
   })
 }
 
+export function demoStorm(signal?: AbortSignal): Promise<AnalyzeResponse> {
+  return request('/api/demo/storm', { signal })
+}
+
 export function geocode(query: string, signal?: AbortSignal): Promise<Place[]> {
   return request(`/api/geocode?q=${encodeURIComponent(query)}`, { signal })
 }

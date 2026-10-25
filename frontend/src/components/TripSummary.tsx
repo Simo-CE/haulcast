@@ -14,7 +14,7 @@ export function TripSummary({ result, onEdit }: { result: AnalyzeResponse; onEdi
           {result.origin.label} → {result.destination.label}
         </Typography>
         <Typography variant="caption" color="text.secondary">
-          {departs} · {result.loadLb.toLocaleString('en-US')} lb · every {result.spacingMi} mi
+          {result.replay ? 'Replay · ' : ''}{departs} · {result.loadLb.toLocaleString('en-US')} lb · every {result.spacingMi} mi
         </Typography>
       </div>
       <Button size="small" startIcon={<EditIcon />} onClick={onEdit}>

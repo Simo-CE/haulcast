@@ -1,5 +1,6 @@
 import Alert from '@mui/material/Alert'
 import AlertTitle from '@mui/material/AlertTitle'
+import ThunderstormIcon from '@mui/icons-material/Thunderstorm'
 import Stack from '@mui/material/Stack'
 import { formatMiles } from '../lib/format'
 import type { AnalyzeResponse } from '../types/api'
@@ -13,6 +14,12 @@ export function Notices({ result }: { result: AnalyzeResponse }) {
 
   return (
     <Stack sx={{ gap: 1 }}>
+      {result.replay && (
+        <Alert severity="info" icon={<ThunderstormIcon fontSize="inherit" />}>
+          <AlertTitle>Replay: {result.replay.title}</AlertTitle>
+          {result.replay.summary}
+        </Alert>
+      )}
       {recommended && recommended.milesByLevel['No Travel'] > 0 && (
         <Alert severity="error" variant="filled">
           <AlertTitle>No Travel conditions on every route</AlertTitle>

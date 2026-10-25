@@ -1,6 +1,7 @@
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import SwapVertIcon from '@mui/icons-material/SwapVert'
+import ThunderstormIcon from '@mui/icons-material/Thunderstorm'
 import Button from '@mui/material/Button'
 import ButtonBase from '@mui/material/ButtonBase'
 import Chip from '@mui/material/Chip'
@@ -38,6 +39,8 @@ interface Props {
   values: TripFormValues
   onChange: (values: TripFormValues) => void
   onSubmit: (request: AnalyzeRequest) => void
+  /** loads the recorded storm instead of a live analysis */
+  onReplay: () => void
   loading: boolean
   /** field messages from a 400 response */
   serverErrors: FormErrors
@@ -53,7 +56,7 @@ function Label({ children }: { children: string }) {
   )
 }
 
-export function TripForm({ values, onChange, onSubmit, loading, serverErrors, compact = false }: Props) {
+export function TripForm({ values, onChange, onSubmit, onReplay, loading, serverErrors, compact = false }: Props) {
   const [errors, setErrors] = useState<FormErrors>({})
   const [optionsOpen, setOptionsOpen] = useState(false)
   const [now] = useState(() => new Date())
@@ -259,6 +262,21 @@ export function TripForm({ values, onChange, onSubmit, loading, serverErrors, co
           ))}
         </Stack>
       </div>
+      <Button
+        variant="outlined"
+        color="inherit"
+        disabled={loading}
+        startIcon={<ThunderstormIcon />}
+        onClick={onReplay}
+        sx={{ justifyContent: 'flex-start', textAlign: 'left', borderColor: 'divider' }}
+      >
+        <span>
+          Replay a real storm
+          <Typography variant="caption" component="span" sx={{ display: 'block', color: 'text.secondary', fontWeight: 400 }}>
+            Wyoming wind, Dec 9, 2025 · a recording, not a live forecast
+          </Typography>
+        </span>
+      </Button>
     </Stack>
   )
 }

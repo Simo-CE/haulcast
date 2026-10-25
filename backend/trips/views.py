@@ -1,4 +1,9 @@
 """HTTP layer: validate, call the service, map failures to status codes."""
+import json
+import logging
+from functools import cache
+from pathlib import Path
+
 from rest_framework.decorators import api_view
 from rest_framework.request import Request
 from rest_framework.response import Response
@@ -9,6 +14,8 @@ from trips.serializers import AnalyzeSerializer
 from trips.services.analyze import InputError, analyze
 
 BAD_GATEWAY = 502
+log = logging.getLogger(__name__)
+DEMO_STORM = Path(__file__).parent / "fixtures" / "demo_storm.json"
 
 
 @api_view(["GET"])
@@ -29,7 +36,21 @@ def analyze_trip(request: Request) -> Response:
         return Response({exc.field: [exc.message]}, status=400)
     except IntegrationError as exc:  # messages never contain a URL or key (see integrations/http.py)
         return Response({"error": str(exc)}, status=BAD_GATEWAY)
+    except Exception:  # a bug must reach the client as JSON, not as a Django debug page with a stack trace
+        log.exception("analyze failed")
+        return Response({"error": "Unexpected server error"}, status=500)
     return Response(result)
+
+
+@cache
+def _demo_storm() -> dict:
+    return json.loads(DEMO_STORM.read_text())
+
+
+@api_view(["GET"])
+def demo_storm(_request: Request) -> Response:
+    """A recorded real storm (`manage.py record_storm`): the /api/analyze shape plus a `replay` block."""
+    return Response(_demo_storm())
 
 
 @api_view(["GET"])

@@ -128,6 +128,15 @@ export function restyle(base: StyleSpecification, scheme: Scheme): StyleSpecific
   return { ...base, layers }
 }
 
+/** Used when the OpenFreeMap style cannot be fetched: land colour only, so routes and heat still draw. */
+export function plainStyle(scheme: Scheme): StyleSpecification {
+  return {
+    version: 8,
+    sources: {},
+    layers: [{ id: 'background', type: 'background', paint: { 'background-color': PALETTES[scheme].land } }],
+  }
+}
+
 let liberty: Promise<StyleSpecification> | undefined
 /** The base style, fetched once; a failed fetch is retried on the next call. */
 export function loadBaseStyle(): Promise<StyleSpecification> {

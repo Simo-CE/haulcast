@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { analyze, ApiError, geocode, toApiError } from './client'
+import { analyze, ApiError, demoStorm, geocode, toApiError } from './client'
 
 describe('toApiError', () => {
   it('maps a 400 field map to per-field messages', () => {
@@ -53,5 +53,16 @@ describe('request helpers', () => {
     await expect(geocode('abc')).rejects.toBeInstanceOf(ApiError)
     stub(new DOMException('aborted', 'AbortError'))
     await expect(geocode('abc')).rejects.toMatchObject({ name: 'AbortError' })
+  })
+})
+
+describe('demoStorm', () => {
+  it('reads the recorded storm from /api/demo/storm', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ replay: { title: 'x' } }), { status: 200 }))
+    vi.stubGlobal('fetch', fetchMock)
+    const data = await demoStorm()
+    expect(fetchMock.mock.calls[0][0]).toBe('/api/demo/storm')
+    expect(data.replay?.title).toBe('x')
+    vi.unstubAllGlobals()
   })
 })

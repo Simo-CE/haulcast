@@ -6,7 +6,7 @@ import Stack from '@mui/material/Stack'
 import useMediaQuery from '@mui/material/useMediaQuery'
 import { useMutation } from '@tanstack/react-query'
 import { type ReactNode, useState } from 'react'
-import { analyze, ApiError } from './api/client'
+import { analyze, ApiError, demoStorm } from './api/client'
 import { BottomSheet } from './components/BottomSheet'
 import { HeatmapLayer } from './components/HeatmapLayer'
 import { Header } from './components/Header'
@@ -25,7 +25,7 @@ import type { AnalyzeRequest } from './types/api'
 export default function App() {
   const desktop = useMediaQuery(useTheme().breakpoints.up('md'))
   const [values, setValues] = useState<TripFormValues>(initialValues)
-  const [lastRequest, setLastRequest] = useState<AnalyzeRequest | null>(null)
+  const [lastRequest, setLastRequest] = useState<AnalyzeRequest | 'replay' | null>(null)
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [hoveredId, setHoveredId] = useState<string | null>(null)
   const [active, setActive] = useState<ActiveCheckpoint | null>(null)
@@ -33,7 +33,7 @@ export default function App() {
   const [editing, setEditing] = useState(false)
 
   const mutation = useMutation({
-    mutationFn: (request: AnalyzeRequest) => analyze(request),
+    mutationFn: (request: AnalyzeRequest | 'replay') => (request === 'replay' ? demoStorm() : analyze(request)),
     onSuccess: (data) => {
       setSelectedId(data.recommendedRouteId)
       setActive(null)
@@ -41,7 +41,7 @@ export default function App() {
     },
   })
 
-  const run = (request: AnalyzeRequest) => {
+  const run = (request: AnalyzeRequest | 'replay') => {
     setLastRequest(request)
     setEditing(false)
     mutation.mutate(request)
@@ -66,6 +66,7 @@ export default function App() {
       values={values}
       onChange={setValues}
       onSubmit={run}
+      onReplay={() => run('replay')}
       loading={mutation.isPending}
       serverErrors={serverErrors}
       compact={!desktop}
@@ -113,6 +114,7 @@ export default function App() {
       heatmap={result.heatmap}
       arrival={selectedRoute ? arrivalHour(selectedRoute, result.heatmap.startTime) : undefined}
       variant={desktop ? 'floating' : 'sheet'}
+      replay={Boolean(result.replay)}
     />
   )
 

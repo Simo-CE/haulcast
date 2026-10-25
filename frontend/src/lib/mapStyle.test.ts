@@ -1,6 +1,6 @@
 import type { StyleSpecification } from 'maplibre-gl'
 import { describe, expect, it } from 'vitest'
-import { restyle } from './mapStyle'
+import { plainStyle, restyle } from './mapStyle'
 
 const line = (id: string, paint: object = {}) => ({ id, type: 'line', source: 'o', 'source-layer': 'transportation', paint }) as never
 const base = {
@@ -21,6 +21,16 @@ const base = {
 } as unknown as StyleSpecification
 
 const byId = (s: StyleSpecification, id: string) => s.layers.find((l) => l.id === id) as { paint: Record<string, unknown>; minzoom?: number }
+
+describe('plainStyle', () => {
+  it('is a valid style with only a background, so the map is never blank when the basemap fails', () => {
+    for (const scheme of ['light', 'dark'] as const) {
+      const style = plainStyle(scheme)
+      expect(style.layers.map((l) => l.id)).toEqual(['background'])
+      expect(Object.keys(style.sources)).toEqual([])
+    }
+  })
+})
 
 describe('restyle', () => {
   it('drops clutter (POIs, buildings, paths, rail) and keeps roads, water and labels', () => {

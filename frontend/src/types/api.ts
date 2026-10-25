@@ -53,6 +53,13 @@ export interface Heatmap {
   points: { lat: number; lon: number; scores: number[] }[]
 }
 
+/** Present only on the recorded storm: the response is an archived forecast, not a live one. */
+export interface Replay {
+  title: string
+  summary: string
+  forecastSource: string
+}
+
 export interface AnalyzeResponse {
   origin: Place
   destination: Place
@@ -66,6 +73,7 @@ export interface AnalyzeResponse {
   warnings: string[]
   complete: boolean
   timingsMs: Record<string, number>
+  replay?: Replay
 }
 
 export type PlaceInput = string | Place

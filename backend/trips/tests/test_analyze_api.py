@@ -1,4 +1,5 @@
 """POST /api/analyze end to end, offline: saved real TomTom routes, Open-Meteo faked from the request."""
+import itertools
 from datetime import UTC, datetime, timedelta
 
 import httpx
@@ -337,3 +338,46 @@ def test_real_rural_trip_returns_three_routes_with_checkpoints_every_25_miles(re
         miles = [c["mile"] for c in route["checkpoints"]]
         assert miles[:3] == [0, 25, 50] and miles == sorted(miles)
         assert miles[-1] == pytest.approx(route["distanceMi"], rel=0.01)
+
+
+def test_demo_storm_replay_has_the_analyze_shape_and_is_labelled_a_replay():
+    res = APIClient().get("/api/demo/storm")
+    data = res.json()
+    assert res.status_code == 200 and {"routes", "heatmap", "ranking", "recommendedRouteId"} <= set(data)
+    assert data["replay"]["title"] and "replay" in data["replay"]["summary"].lower()
+    assert data["departure"].startswith("2025-12-09") and len(data["routes"]) == 3
+    assert all(len(p["scores"]) == 49 for p in data["heatmap"]["points"])
+    levels = {c["levelLabel"] for r in data["routes"] for c in r["checkpoints"]}
+    assert {"Severe", "No Travel"} <= levels
+
+
+def test_an_unexpected_error_is_json_without_a_stack_trace(monkeypatch):
+    def boom(*_a):
+        raise RuntimeError("secret internal detail")
+
+    monkeypatch.setattr("trips.views.analyze", boom)
+    res = APIClient().post("/api/analyze", body(), format="json")
+    assert res.status_code == 500 and res.json() == {"error": "Unexpected server error"}
+    assert b"secret internal detail" not in res.content and b"Traceback" not in res.content
+
+
+def test_tomtom_503_429_and_timeout_are_502s_with_the_provider_named(respx_mock, sleeps):
+    for failure in (httpx.Response(503), httpx.Response(429), httpx.ReadTimeout("slow")):
+        respx_mock.get(url__regex=TOMTOM).mock(side_effect=itertools.repeat(failure))
+        res = post()
+        text = res.json()["error"]
+        assert res.status_code == 502 and "TomTom" in text and "test-key" not in text and "http" not in text
+
+
+def test_open_meteo_429_after_retries_and_a_timeout_are_502s(respx_mock, sleeps):
+    mock_tomtom(respx_mock)
+    for failure in (httpx.Response(429), httpx.ConnectTimeout("slow")):
+        respx_mock.get(url__regex=METEO).mock(side_effect=itertools.repeat(failure))
+        res = post()
+        assert res.status_code == 502 and "Open-Meteo" in res.json()["error"]
+
+
+def test_a_point_in_the_ocean_says_no_route_not_a_stack_trace(respx_mock):
+    respx_mock.get(url__regex=TOMTOM).respond(400, json={"detailedError": {"code": "MAP_MATCHING_FAILURE"}})
+    res = post(destination={"lat": 30.0, "lon": -60.0})
+    assert res.status_code == 502 and "MAP_MATCHING_FAILURE" in res.json()["error"]

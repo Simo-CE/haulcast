@@ -15,6 +15,7 @@ export function TruckMarker({ route, startTime }: { route: Route; startTime: str
   return (
     <Marker longitude={lon} latitude={lat} anchor="center" style={{ pointerEvents: 'none' }}>
       <Box
+        data-testid="truck"
         sx={{
           display: 'grid',
           placeItems: 'center',

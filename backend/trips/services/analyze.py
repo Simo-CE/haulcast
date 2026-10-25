@@ -110,7 +110,8 @@ def _rate(wx: WeatherPoint, load_lb: float) -> tuple[Level | None, str]:
 def _score(wx: WeatherPoint, load_lb: float) -> int:
     if None in (wx.wind_mph, wx.rain_in_hr, wx.snow_in_hr):
         return UNKNOWN_SCORE
-    return round(risk_score(wx.wind_mph, wx.rain_in_hr, wx.snow_in_hr, load_lb) * SCORE_SCALE)
+    # floor, not round: 54.9 mph is Severe (score 3.99) and must not be stored as 40 (No Travel)
+    return int(risk_score(wx.wind_mph, wx.rain_in_hr, wx.snow_in_hr, load_lb) * SCORE_SCALE)
 
 
 def _geometry(route: _Route) -> list[list[float]]:

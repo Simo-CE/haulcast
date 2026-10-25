@@ -1,6 +1,8 @@
 import FlagIcon from '@mui/icons-material/Flag'
 import TripOriginIcon from '@mui/icons-material/TripOrigin'
+import Alert from '@mui/material/Alert'
 import Box from '@mui/material/Box'
+import Button from '@mui/material/Button'
 import Stack from '@mui/material/Stack'
 import Typography from '@mui/material/Typography'
 import { useColorScheme } from '@mui/material/styles'
@@ -9,7 +11,7 @@ import 'maplibre-gl/dist/maplibre-gl.css'
 import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react'
 import Map, { Layer, Marker, NavigationControl, Popup, Source, type MapRef } from 'react-map-gl/maplibre'
 import { formatEta, formatNumber } from '../lib/format'
-import { loadBaseStyle, restyle } from '../lib/mapStyle'
+import { loadBaseStyle, plainStyle, restyle } from '../lib/mapStyle'
 import { LEVEL_STYLES } from '../lib/risk'
 import type { AnalyzeResponse } from '../types/api'
 import { LevelBadge } from './LevelBadge'
@@ -59,10 +61,22 @@ export function RouteMap({ result, selectedId, hoveredId, active, bottomInset, o
   const [loaded, setLoaded] = useState(false)
   const [cursor, setCursor] = useState('')
   const [baseStyle, setBaseStyle] = useState<StyleSpecification | null>(null)
+  const [styleFailed, setStyleFailed] = useState(false)
+  const [styleAttempt, setStyleAttempt] = useState(0)
   useEffect(() => {
-    loadBaseStyle().then(setBaseStyle, () => setBaseStyle(null))
-  }, [])
-  const mapStyle = useMemo(() => (baseStyle ? restyle(baseStyle, scheme) : null), [baseStyle, scheme])
+    loadBaseStyle().then(
+      (style) => {
+        setBaseStyle(style)
+        setStyleFailed(false)
+      },
+      () => setStyleFailed(true),
+    )
+  }, [styleAttempt])
+  // a blank map would hide the routes too: fall back to a plain background and say so
+  const mapStyle = useMemo(
+    () => (baseStyle ? restyle(baseStyle, scheme) : styleFailed ? plainStyle(scheme) : null),
+    [baseStyle, styleFailed, scheme],
+  )
 
   const routeLines = useMemo(
     () => ({
@@ -126,6 +140,15 @@ export function RouteMap({ result, selectedId, hoveredId, active, bottomInset, o
   return (
     <Box role="region" aria-label="Route map" sx={{ position: 'absolute', inset: 0 }}>
       <MapLegend showUnknown={Boolean(result?.routes.some((r) => r.unknownMi > 0))} />
+      {styleFailed && !baseStyle && (
+        <Alert
+          severity="warning"
+          sx={{ position: 'absolute', zIndex: 1, left: 12, right: 12, top: { xs: 76, md: 60 }, width: 'fit-content', maxWidth: 420 }}
+          action={<Button color="inherit" size="small" onClick={() => setStyleAttempt((n) => n + 1)}>Retry</Button>}
+        >
+          The street map could not be loaded. Routes and weather still work on a plain background.
+        </Alert>
+      )}
       {mapStyle && (
       <Map
         ref={mapRef}
