@@ -3,6 +3,7 @@
 Open-Meteo bills every location as one call, so callers snap points to the lattice (`snap`), pass the
 distinct cells here, and we fetch each once per hour of cache, 100 cells per request.
 """
+import os
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
@@ -13,7 +14,8 @@ from django.core.cache import cache
 
 from trips.integrations.http import IntegrationError, get_json
 
-URL = "https://api.open-meteo.com/v1/forecast"
+# Render's shared IP can exhaust Open-Meteo's free daily quota; production routes via the Worker.
+URL = os.environ.get("OPEN_METEO_URL", "https://api.open-meteo.com/v1/forecast")
 LATTICE_DEG = 0.25
 CHUNK = 100
 MAX_CELLS = 300
