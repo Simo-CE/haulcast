@@ -1,9 +1,11 @@
 """One GET helper for all external services: timeout, retry with backoff, descriptive User-Agent."""
+import logging
 import time
 from typing import Any
 
 import httpx
 
+log = logging.getLogger(__name__)
 USER_AGENT = "Haulcast/0.1 (+https://haulcast.dooma.dev)"
 
 
@@ -37,6 +39,10 @@ def get_json(
             resp = httpx.get(url, params=params, headers={"User-Agent": USER_AGENT}, timeout=timeout)
         except httpx.HTTPError as exc:
             raise IntegrationError(f"{service} request failed: {type(exc).__name__}") from None
+        if resp.status_code != 200:  # host only: the URL holds a key
+            keep = ("retry-after", "x-ratelimit", "cf-ray", "server")
+            diagnostic = {k: v for k, v in resp.headers.items() if k.lower().startswith(keep)}
+            log.warning("%s GET %s -> %s %s", service, httpx.URL(url).host, resp.status_code, diagnostic)
         if (resp.status_code == 429 or resp.status_code >= 500) and not last:
             time.sleep(backoff * 2**attempt)
             continue
