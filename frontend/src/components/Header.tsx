@@ -26,7 +26,7 @@ export function Brand() {
         <LocalShippingIcon sx={{ fontSize: 18 }} />
       </Box>
       <Typography component="h1" sx={{ m: 0, fontFamily: FONT, fontSize: '1.25rem', fontWeight: 700, letterSpacing: '-0.05em' }}>
-        {BRAND.toLowerCase()}
+        {BRAND}
       </Typography>
     </Stack>
   )

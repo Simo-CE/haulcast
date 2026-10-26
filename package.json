@@ -1,5 +1,5 @@
 {
-  "name": "weather-aware-truck-routing",
+  "name": "haulcast",
   "private": true,
   "description": "Shortcuts for the whole repo. Same idea as scripts in a frontend package.json: run them with `npm run <name>` from this folder.",
   "scripts": {

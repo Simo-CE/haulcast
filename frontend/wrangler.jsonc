@@ -1,0 +1,16 @@
+// Cloudflare Worker (free plan): serves dist/ and proxies /api/* to the Django API on Northflank.
+// Deploy: npm run build && npx wrangler@4.149.0 deploy
+{
+  "name": "haulcast",
+  "main": "worker/index.ts",
+  "compatibility_date": "2026-10-08",
+  "assets": {
+    "directory": "./dist",
+    "run_worker_first": ["/api/*"]
+  },
+  "vars": {
+    // The public https URL of the Django API (for example a Northflank code.run domain), no trailing slash.
+    "BACKEND_URL": "https://REPLACE-WITH-NORTHFLANK-DOMAIN.code.run"
+  },
+  "routes": [{ "pattern": "haulcast.dooma.dev", "custom_domain": true }]
+}

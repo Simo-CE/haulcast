@@ -13,3 +13,4 @@ htmlcov/
 *.log
 .hypothesis/
 .ruff_cache/
+.wrangler/
