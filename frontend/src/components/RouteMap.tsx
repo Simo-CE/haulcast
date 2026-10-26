@@ -5,6 +5,8 @@ import Paper from '@mui/material/Paper'
 import Stack from '@mui/material/Stack'
 import Typography from '@mui/material/Typography'
 import { useColorScheme } from '@mui/material/styles'
+import { setWorkerUrl } from 'maplibre-gl'
+import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url'
 import type { ExpressionSpecification, LngLatBoundsLike, MapLayerMouseEvent, StyleSpecification } from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react'
@@ -17,6 +19,9 @@ import { LevelBadge } from './LevelBadge'
 import { PlaceMarker, PREVIEW_FLIGHT_MS } from './PlaceMarker'
 import { MapLegend } from './MapLegend'
 import { RouteBadge } from './RouteBadge'
+
+// Vite does not emit maplibre 6's worker file on its own; without this the deployed map 404s on /assets/maplibre-gl-worker.mjs.
+setWorkerUrl(workerUrl)
 
 const ROUTE_COLORS = {
   light: { main: '#0f1b2d', other: '#8a949e', casing: '#ffffff' },
