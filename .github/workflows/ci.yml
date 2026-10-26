@@ -58,7 +58,12 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
       - run: npm ci
         working-directory: frontend
-      - run: npx playwright install --with-deps chromium
+      # Headless shell only (the tests never use full Chromium) and no apt: runner images already ship Chromium's libraries.
+      - uses: actions/cache@v5
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ hashFiles('frontend/package-lock.json') }}
+      - run: npx playwright install --only-shell chromium
         working-directory: frontend
       - run: npx playwright test
         working-directory: frontend
