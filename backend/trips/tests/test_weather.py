@@ -10,7 +10,8 @@ from trips.integrations.http import IntegrationError
 from trips.integrations.weather import Forecast
 from trips.tests.conftest import load_fixture
 
-URL = r"https://api\.open-meteo\.com/v1/forecast.*"
+URL = r"https://haulcast\.dooma\.dev/openmeteo.*"
+FALLBACK = r"https://api\.open-meteo\.com/v1/forecast.*"
 START = datetime(2026, 10, 23, 20, 0, tzinfo=UTC)
 LAST = datetime(2026, 10, 24, 2, 0, tzinfo=UTC)  # the saved fixture covers these 7 hours
 CELLS = [(41.75, -87.75), (42.25, -87.75), (42.75, -87.75), (43.0, -88.0)]
@@ -135,19 +136,29 @@ def test_last_before_first_is_refused():
 
 
 def test_429_backs_off_and_retries(respx_mock, sleeps):
-    route = respx_mock.get(url__regex=URL).mock(
+    route = respx_mock.get(url__regex=URL + "|" + FALLBACK).mock(
         side_effect=[httpx.Response(429), httpx.Response(503),
                      httpx.Response(200, json=load_fixture("openmeteo_chicago_milwaukee.json"))]
     )
     assert len(weather.fetch_forecasts(CELLS, START, LAST)) == 4
-    assert route.call_count == 3 and sleeps == [2.0, 4.0]
+    assert route.call_count == 3 and sleeps == [2.0]
 
 
-def test_gives_up_after_four_attempts(respx_mock, sleeps):
-    route = respx_mock.get(url__regex=URL).respond(429)
+def test_gives_up_after_trying_both_endpoints(respx_mock, sleeps):
+    proxy = respx_mock.get(url__regex=URL).respond(429)
+    direct = respx_mock.get(url__regex=FALLBACK).respond(429)
     with pytest.raises(IntegrationError, match="HTTP 429"):
         weather.fetch_forecasts(CELLS, START, LAST)
-    assert route.call_count == 4 and sleeps == [2.0, 4.0, 8.0]
+    assert proxy.call_count == 2 and direct.call_count == 4
+
+
+def test_a_failing_worker_proxy_falls_back_to_open_meteo_directly(respx_mock):
+    respx_mock.get(url__regex=URL).respond(429, json={"reason": "Daily API request limit exceeded."})
+    direct = respx_mock.get(url__regex=FALLBACK).respond(
+        json=load_fixture("openmeteo_chicago_milwaukee.json")
+    )
+    assert len(weather.fetch_forecasts(CELLS, START, LAST)) == 4
+    assert direct.call_count == 1
 
 
 def _break(path: list, value):

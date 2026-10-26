@@ -14,8 +14,9 @@ from django.core.cache import cache
 
 from trips.integrations.http import IntegrationError, get_json
 
-# Render's shared IP can exhaust Open-Meteo's free daily quota; production routes via the Worker.
-URL = os.environ.get("OPEN_METEO_URL", "https://api.open-meteo.com/v1/forecast")
+# Render's shared IP exhausts Open-Meteo's free daily quota (429), so the Worker proxy goes first.
+URL = os.environ.get("OPEN_METEO_URL", "https://haulcast.dooma.dev/openmeteo")
+FALLBACK_URL = "https://api.open-meteo.com/v1/forecast"
 LATTICE_DEG = 0.25
 CHUNK = 100
 MAX_CELLS = 300
@@ -108,7 +109,12 @@ def _fetch_chunk(cells: Sequence[Cell], start: datetime, hours: int) -> list[For
         "start_hour": start.strftime("%Y-%m-%dT%H:%M"),
         "end_hour": (start + (hours - 1) * _HOUR).strftime("%Y-%m-%dT%H:%M"),
     }
-    data = get_json("Open-Meteo", URL, params, attempts=4, backoff=2.0)
+    try:
+        data = get_json("Open-Meteo", URL, params, attempts=2, backoff=2.0)
+    except IntegrationError:
+        if URL == FALLBACK_URL:
+            raise
+        data = get_json("Open-Meteo", FALLBACK_URL, params, attempts=4, backoff=2.0)
     objs = [data] if isinstance(data, dict) else data  # one location comes back as an object, not a list
     if not isinstance(objs, list) or len(objs) != len(cells):
         raise IntegrationError("Open-Meteo returned a different number of locations than requested")

@@ -18,7 +18,7 @@ CHICAGO, DENVER = {"lat": 41.8781, "lon": -87.6298}, {"lat": 39.7392, "lon": -10
 MILWAUKEE = {"lat": 43.0389, "lon": -87.9065}
 SEATTLE, MIAMI = {"lat": 47.6062, "lon": -122.3321}, {"lat": 25.7617, "lon": -80.1918}
 TOMTOM = r"https://api\.tomtom\.com/routing/1/calculateRoute/.*"
-METEO = r"https://api\.open-meteo\.com/v1/forecast.*"
+METEO = r"https://(api\.open-meteo\.com/v1/forecast|haulcast\.dooma\.dev/openmeteo).*"
 GEOCODE = r"https://api\.tomtom\.com/search/2/geocode/.*"
 STORM_MPH = 60  # No Travel for any load
 
